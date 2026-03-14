@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Company Admin - Notifications</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, sans-serif; margin: 0; padding: 1rem; max-width: 960px; margin-inline: auto; }
+    nav { display: flex; gap: 1rem; margin-bottom: 1.5rem; border-bottom: 1px solid #ddd; padding-bottom: 0.5rem; }
+    nav a { color: #0066cc; text-decoration: none; }
+    nav a:hover { text-decoration: underline; }
+    .page { display: none; }
+    .page.active { display: block; }
+    form label { display: block; margin-top: 0.5rem; }
+    form input, form select, form textarea { width: 100%; max-width: 400px; padding: 0.4rem; margin-top: 0.2rem; }
+    button { padding: 0.5rem 1rem; cursor: pointer; background: #0066cc; color: white; border: none; border-radius: 4px; }
+    button:hover { background: #0052a3; }
+    button.danger { background: #c00; }
+    .error { color: #c00; margin-top: 0.5rem; }
+    .success { color: #080; margin-top: 0.5rem; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 0.5rem; border-bottom: 1px solid #eee; }
+    .token-display { word-break: break-all; font-size: 0.85rem; }
+  </style>
+</head>
+<body>
+  <div id="loginPage" class="page">
+    <h1>Company Admin</h1>
+    <form id="loginForm">
+      <label>Email <input type="email" id="loginEmail" required value="admin@example.com" /></label>
+      <label>Password <input type="password" id="loginPassword" required value="admin123" /></label>
+      <button type="submit">Log in</button>
+    </form>
+    <p id="loginError" class="error"></p>
+  </div>
+
+  <div id="appPage" class="page">
+    <nav>
+      <a href="#" data-page="locations">Locations</a>
+      <a href="#" data-page="workers">Workers</a>
+      <a href="#" data-page="schedules">Schedules</a>
+      <button type="button" id="logoutBtn">Log out</button>
+    </nav>
+
+    <div id="locationsPage" class="page">
+      <h2>Locations</h2>
+      <button id="addLocationBtn">Add location</button>
+      <div id="locationForm" style="display:none; margin-top:1rem;">
+        <form id="locationFormEl">
+          <input type="hidden" id="locationId" />
+          <label>Name <input type="text" id="locationName" required /></label>
+          <label>Code <input type="text" id="locationCode" placeholder="e.g. BRANCH-A" /></label>
+          <label>Address <input type="text" id="locationAddress" /></label>
+          <label>Timezone <input type="text" id="locationTimezone" value="UTC" /></label>
+          <button type="submit">Save</button>
+          <button type="button" id="cancelLocationBtn">Cancel</button>
+        </form>
+      </div>
+      <table id="locationsTable"><thead><tr><th>Name</th><th>Code</th><th>Timezone</th><th></th></tr></thead><tbody></tbody></table>
+    </div>
+
+    <div id="workersPage" class="page">
+      <h2>Workers</h2>
+      <button id="addWorkerBtn">Add worker</button>
+      <div id="workerForm" style="display:none; margin-top:1rem;">
+        <form id="workerFormEl">
+          <label>Name <input type="text" id="workerName" /></label>
+          <label>Phone <input type="text" id="workerPhone" /></label>
+          <label>External ID (device id) <input type="text" id="workerExternalId" /></label>
+          <button type="submit">Save</button>
+          <button type="button" id="cancelWorkerBtn">Cancel</button>
+        </form>
+      </div>
+      <table id="workersTable"><thead><tr><th>ID</th><th>Name</th><th>Phone</th><th>External ID</th></tr></thead><tbody></tbody></table>
+    </div>
+
+    <div id="schedulesPage" class="page">
+      <h2>Scheduled Alerts</h2>
+      <button id="addScheduleBtn">Add schedule</button>
+      <div id="scheduleForm" style="display:none; margin-top:1rem;">
+        <form id="scheduleFormEl">
+          <input type="hidden" id="scheduleId" />
+          <label>Location <select id="scheduleLocationId"></select></label>
+          <label>Name <input type="text" id="scheduleName" placeholder="e.g. Morning check-in" required /></label>
+          <label>Message title <input type="text" id="scheduleTitle" required /></label>
+          <label>Message body <textarea id="scheduleBody" rows="3" required></textarea></label>
+          <label>Send time (HH:MM) <input type="time" id="scheduleTime" required /></label>
+          <button type="submit">Save</button>
+          <button type="button" id="cancelScheduleBtn">Cancel</button>
+        </form>
+      </div>
+      <table id="schedulesTable"><thead><tr><th>Location</th><th>Name</th><th>Time</th><th>Title</th><th>Active</th><th></th></tr></thead><tbody></tbody></table>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = '/api';
+    let token = localStorage.getItem('adminToken');
+
+    function api(url, options = {}) {
+      const headers = { 'Content-Type': 'application/json', ...options.headers };
+      if (token) headers['Authorization'] = 'Bearer ' + token;
+      return fetch(API_BASE + url, { ...options, headers }).then(async r => {
+        if (r.status === 401) { token = null; localStorage.removeItem('adminToken'); showPage('loginPage'); return; }
+        const text = await r.text();
+        let data;
+        try { data = text ? JSON.parse(text) : null; } catch (_) { throw new Error(text || r.statusText); }
+        if (!r.ok) throw new Error(data?.detail || JSON.stringify(data) || r.statusText);
+        return data;
+      });
+    }
+
+    function showPage(id) {
+      document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+      const el = document.getElementById(id);
+      if (el) el.classList.add('active');
+      if (id === 'appPage') {
+        document.querySelectorAll('#appPage .page').forEach(p => p.style.display = 'none');
+        document.getElementById('locationsPage').style.display = 'block';
+        loadLocations(); loadWorkers(); loadSchedules();
+      }
+    }
+
+    function showSubPage(name) {
+      document.querySelectorAll('#appPage > .page').forEach(p => { p.style.display = 'none'; });
+      document.getElementById(name + 'Page').style.display = 'block';
+      if (name === 'locations') loadLocations();
+      if (name === 'workers') loadWorkers();
+      if (name === 'schedules') loadSchedules();
+    }
+
+    // Login
+    document.getElementById('loginForm').addEventListener('submit', async e => {
+      e.preventDefault();
+      const errEl = document.getElementById('loginError');
+      errEl.textContent = '';
+      try {
+        const data = await api('/auth/login', { method: 'POST', body: JSON.stringify({ email: document.getElementById('loginEmail').value, password: document.getElementById('loginPassword').value }) });
+        token = data.access_token;
+        localStorage.setItem('adminToken', token);
+        showPage('appPage');
+      } catch (e) { errEl.textContent = e.message; }
+    });
+    document.getElementById('logoutBtn').addEventListener('click', () => { token = null; localStorage.removeItem('adminToken'); showPage('loginPage'); });
+
+    document.querySelectorAll('nav a[data-page]').forEach(a => {
+      a.addEventListener('click', e => { e.preventDefault(); showSubPage(a.dataset.page); });
+    });
+
+    if (token) showPage('appPage');
+    else showPage('loginPage');
+
+    // Locations
+    let locations = [];
+    async function loadLocations() {
+      locations = await api('/locations');
+      const tbody = document.querySelector('#locationsTable tbody');
+      tbody.innerHTML = locations.map(l => `
+        <tr>
+          <td>${l.name}</td><td>${l.code || '-'}</td><td>${l.timezone}</td>
+          <td><button class="edit-location" data-id="${l.id}">Edit</button> <button class="delete-location danger" data-id="${l.id}">Delete</button></td>
+        </tr>`).join('');
+      tbody.querySelectorAll('.edit-location').forEach(btn => btn.addEventListener('click', () => editLocation(Number(btn.dataset.id))));
+      tbody.querySelectorAll('.delete-location').forEach(btn => btn.addEventListener('click', () => deleteLocation(Number(btn.dataset.id))));
+    }
+    function editLocation(id) {
+      const l = locations.find(x => x.id === id);
+      if (!l) return;
+      document.getElementById('locationId').value = l.id;
+      document.getElementById('locationName').value = l.name;
+      document.getElementById('locationCode').value = l.code || '';
+      document.getElementById('locationAddress').value = l.address || '';
+      document.getElementById('locationTimezone').value = l.timezone || 'UTC';
+      document.getElementById('locationForm').style.display = 'block';
+    }
+    document.getElementById('addLocationBtn').addEventListener('click', () => {
+      document.getElementById('locationId').value = '';
+      document.getElementById('locationFormEl').reset();
+      document.getElementById('locationForm').style.display = 'block';
+    });
+    document.getElementById('cancelLocationBtn').addEventListener('click', () => document.getElementById('locationForm').style.display = 'none');
+    document.getElementById('locationFormEl').addEventListener('submit', async e => {
+      e.preventDefault();
+      const id = document.getElementById('locationId').value;
+      const body = { name: document.getElementById('locationName').value, code: document.getElementById('locationCode').value || null, address: document.getElementById('locationAddress').value || null, timezone: document.getElementById('locationTimezone').value || 'UTC' };
+      try {
+        if (id) await api('/locations/' + id, { method: 'PATCH', body: JSON.stringify(body) });
+        else await api('/locations', { method: 'POST', body: JSON.stringify(body) });
+        document.getElementById('locationForm').style.display = 'none';
+        loadLocations();
+      } catch (err) { alert(err.message); }
+    });
+    async function deleteLocation(id) {
+      if (!confirm('Delete this location?')) return;
+      try {
+        await api('/locations/' + id, { method: 'DELETE' });
+        loadLocations();
+      } catch (err) { alert(err.message); }
+    }
+
+    // Workers
+    async function loadWorkers() {
+      const list = await api('/workers');
+      const tbody = document.querySelector('#workersTable tbody');
+      tbody.innerHTML = list.map(w => `<tr><td>${w.id}</td><td>${w.name || '-'}</td><td>${w.phone || '-'}</td><td>${w.external_id || '-'}</td></tr>`).join('');
+    }
+    document.getElementById('addWorkerBtn').addEventListener('click', () => document.getElementById('workerForm').style.display = 'block');
+    document.getElementById('cancelWorkerBtn').addEventListener('click', () => document.getElementById('workerForm').style.display = 'none');
+    document.getElementById('workerFormEl').addEventListener('submit', async e => {
+      e.preventDefault();
+      try {
+        await api('/workers', { method: 'POST', body: JSON.stringify({ name: document.getElementById('workerName').value || null, phone: document.getElementById('workerPhone').value || null, external_id: document.getElementById('workerExternalId').value || null }) });
+        document.getElementById('workerForm').style.display = 'none';
+        document.getElementById('workerFormEl').reset();
+        loadWorkers();
+      } catch (err) { alert(err.message); }
+    });
+
+    // Schedules
+    let schedules = [];
+    async function loadSchedules() {
+      schedules = await api('/schedules');
+      const tbody = document.querySelector('#schedulesTable tbody');
+      tbody.innerHTML = schedules.map(s => `
+        <tr>
+          <td>${locations.find(l => l.id === s.location_id)?.name || s.location_id}</td>
+          <td>${s.name}</td>
+          <td>${s.send_time}</td>
+          <td>${s.message_title}</td>
+          <td>${s.is_active ? 'Yes' : 'No'}</td>
+          <td><button class="edit-schedule" data-id="${s.id}">Edit</button> <button class="delete-schedule danger" data-id="${s.id}">Delete</button></td>
+        </tr>`).join('');
+      tbody.querySelectorAll('.edit-schedule').forEach(btn => btn.addEventListener('click', () => editSchedule(Number(btn.dataset.id))));
+      tbody.querySelectorAll('.delete-schedule').forEach(btn => btn.addEventListener('click', () => deleteSchedule(Number(btn.dataset.id))));
+      const sel = document.getElementById('scheduleLocationId');
+      sel.innerHTML = locations.map(l => `<option value="${l.id}">${l.name}</option>`).join('');
+    }
+    function editSchedule(id) {
+      const s = schedules.find(x => x.id === id);
+      if (!s) return;
+      document.getElementById('scheduleId').value = s.id;
+      document.getElementById('scheduleLocationId').value = s.location_id;
+      document.getElementById('scheduleName').value = s.name;
+      document.getElementById('scheduleTitle').value = s.message_title;
+      document.getElementById('scheduleBody').value = s.message_body;
+      document.getElementById('scheduleTime').value = s.send_time;
+      document.getElementById('scheduleForm').style.display = 'block';
+    }
+    document.getElementById('addScheduleBtn').addEventListener('click', () => {
+      document.getElementById('scheduleId').value = '';
+      document.getElementById('scheduleFormEl').reset();
+      document.getElementById('scheduleLocationId').innerHTML = locations.map(l => `<option value="${l.id}">${l.name}</option>`).join('');
+      document.getElementById('scheduleForm').style.display = 'block';
+    });
+    document.getElementById('cancelScheduleBtn').addEventListener('click', () => document.getElementById('scheduleForm').style.display = 'none');
+    document.getElementById('scheduleFormEl').addEventListener('submit', async e => {
+      e.preventDefault();
+      const id = document.getElementById('scheduleId').value;
+      const body = { location_id: Number(document.getElementById('scheduleLocationId').value), name: document.getElementById('scheduleName').value, message_title: document.getElementById('scheduleTitle').value, message_body: document.getElementById('scheduleBody').value, send_time: document.getElementById('scheduleTime').value };
+      try {
+        if (id) await api('/schedules/' + id, { method: 'PATCH', body: JSON.stringify({ name: body.name, message_title: body.message_title, message_body: body.message_body, send_time: body.send_time }) });
+        else await api('/schedules', { method: 'POST', body: JSON.stringify(body) });
+        document.getElementById('scheduleForm').style.display = 'none';
+        loadSchedules();
+      } catch (err) { alert(err.message); }
+    });
+    async function deleteSchedule(id) {
+      if (!confirm('Delete this schedule?')) return;
+      try {
+        await api('/schedules/' + id, { method: 'DELETE' });
+        loadSchedules();
+      } catch (err) { alert(err.message); }
+    }
+  </script>
+</body>
+</html>
