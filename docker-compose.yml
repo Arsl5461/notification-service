@@ -65,8 +65,9 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - ./admin-app:/app
-      - /app/node_modules
+    - ./admin-app/src:/app/src       # ← only mount src for hot reload
+    - ./admin-app/public:/app/public # ← and public folder
+    # DO NOT mount the whole /app — it wipes node_modules
     environment:
       REACT_APP_PROXY_TARGET: http://api:8000
     depends_on:

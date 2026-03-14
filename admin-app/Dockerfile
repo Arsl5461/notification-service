@@ -1,14 +1,17 @@
-# Create React App - dev server only (no build). Source mounted from host.
-FROM node:20-alpine
+FROM node:16-alpine
 
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
+
 RUN npm install --legacy-peer-deps
 
-# Source is mounted via docker-compose volume
+RUN npm install ajv@^8 ajv-keywords@^5 --legacy-peer-deps
+
+COPY . .
+
 EXPOSE 3000
+
 ENV HOST=0.0.0.0
-ENV PORT=3000
-ENV BROWSER=none
+
 CMD ["npm", "start"]

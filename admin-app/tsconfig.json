@@ -12,6 +12,8 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
+     "allowSyntheticDefaultImports": true,   // ← Add this
+    "esModuleInterop": true,                 // ← Add this too
     "skipLibCheck": true,
     "baseUrl": "src"
   },
