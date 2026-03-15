@@ -1,4 +1,12 @@
-const API_BASE = (process.env.REACT_APP_API_URL || '') + '/api';
+// Use env if set; otherwise when app is on port 3000, call API on port 8000
+function getApiBase(): string {
+  if (process.env.REACT_APP_API_URL) return process.env.REACT_APP_API_URL;
+  if (typeof window !== 'undefined' && window.location.port === '3000') {
+    return 'http://localhost:8000';
+  }
+  return '';
+}
+const API_BASE = getApiBase() + '/api';
 
 function getToken(): string | null {
   return localStorage.getItem('adminToken');

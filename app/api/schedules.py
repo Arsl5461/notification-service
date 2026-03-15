@@ -45,7 +45,7 @@ async def create_schedule(
     location = result.scalar_one_or_none()
     if not location:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Location not found")
-    schedule = Schedule(location_id=data.location_id, **data.model_dump())
+    schedule = Schedule(**data.model_dump())
     session.add(schedule)
     await session.flush()
     await session.refresh(schedule)

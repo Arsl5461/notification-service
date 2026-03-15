@@ -1,9 +1,13 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
 
 class LoginRequest(BaseModel):
-    email: EmailStr
-    password: str
+    """Use admin@example.com / admin123 to create the default admin (if missing) and log in."""
+
+    model_config = {"json_schema_extra": {"examples": [{"email": "admin@example.com", "password": "admin123"}]}}
+
+    email: EmailStr = Field(description="Admin email")
+    password: str = Field(description="Password")
 
 
 class WorkerLoginRequest(BaseModel):

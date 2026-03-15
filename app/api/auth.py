@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.core.deps import SessionDep, CurrentUser
-from app.core.security import verify_password, create_access_token
+from app.core.security import verify_password, create_access_token, get_password_hash
 from app.models.user import User
 from app.models.worker import Worker
 from app.models.company import Company
@@ -17,8 +17,43 @@ router = APIRouter()
 settings = get_settings()
 
 
-@router.post("/login", response_model=Token)
+# Static default admin (created on first login if missing)
+STATIC_ADMIN_EMAIL = "admin@example.com"
+STATIC_ADMIN_PASSWORD = "admin123"
+
+
+@router.post(
+    "/login",
+    response_model=Token,
+    summary="Admin login",
+    description="Log in with email and password. Use **admin@example.com** / **admin123** to use the default admin; the user and a default company are created on first use if they do not exist.",
+)
 async def login(data: LoginRequest, session: SessionDep) -> Token:
+    # Ensure static admin user exists when logging in with default credentials
+    if data.email == STATIC_ADMIN_EMAIL and data.password == STATIC_ADMIN_PASSWORD:
+        result = await session.execute(select(User).where(User.email == STATIC_ADMIN_EMAIL))
+        user = result.scalar_one_or_none()
+        if not user:
+            company = Company(name="Default Company")
+            session.add(company)
+            await session.flush()
+            user = User(
+                email=STATIC_ADMIN_EMAIL,
+                hashed_password=get_password_hash(STATIC_ADMIN_PASSWORD),
+                full_name="Admin",
+                is_active=True,
+                company_id=company.id,
+            )
+            session.add(user)
+            await session.flush()
+            await session.refresh(user)
+        access_token = create_access_token(
+            subject=str(user.id),
+            expires_delta=timedelta(minutes=settings.access_token_expire_minutes),
+            token_type="admin",
+        )
+        return Token(access_token=access_token)
+
     result = await session.execute(select(User).where(User.email == data.email))
     user = result.scalar_one_or_none()
     if not user or not verify_password(data.password, user.hashed_password):

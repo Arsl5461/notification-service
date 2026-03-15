@@ -10,16 +10,18 @@ Admin panel for the notification backend. Built with **Create React App** (React
    npm install
    ```
 
-2. Start the API backend (from project root):
-   ```bash
-   # Ensure API is running on http://localhost:8000
+2. Ensure the API is running on **http://localhost:8000**.
+
+3. Create `.env` (or copy from `.env.example`) so the frontend calls the API on port 8000:
+   ```
+   REACT_APP_API_URL=http://localhost:8000
    ```
 
-3. Start the admin app:
+4. Start the admin app:
    ```bash
    npm start
    ```
-   Opens at **http://localhost:3000**. API requests are proxied to `http://localhost:8000` (see `package.json` "proxy" and `src/setupProxy.js`).
+   Opens at **http://localhost:3000**. API requests go to **http://localhost:8000/api** (see `REACT_APP_API_URL` in `.env`).
 
 ## Run with Docker
 
