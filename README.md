@@ -12,7 +12,7 @@ Backend and Company Admin for a location-based notification system: **Company Ap
 
 - **Backend**: Python 3.12, FastAPI, SQLAlchemy 2 (async), PostgreSQL, Redis, Celery, Firebase Admin (FCM)
 - **Admin**: React (Vite + TypeScript) in `admin/`; built app served at `/admin`. Fallback: static HTML in `app/static/admin` if React build is not present.
-- **Deploy**: Docker Compose (api, db, redis, celery_worker, celery_beat, pgadmin)
+- **Deploy**: Docker Compose (api, db, redis, celery_worker, celery_beat, flower, pgadmin)
 
 ## Quick Start (Docker)
 
@@ -27,7 +27,14 @@ docker compose exec api python scripts/seed_admin.py
 - **API**: http://localhost:8000  
 - **API docs**: http://localhost:8000/api/docs  
 - **Admin (React)**: http://localhost:8000/admin  
-- **Default login**: `admin@example.com` / `admin123`
+- **Flower** (Celery): http://localhost:5555 (login: `admin` / `admin` unless `FLOWER_AUTH` is set)  
+- **Default admin login**: `admin@example.com` / `admin123`
+
+**Celery worker logs** (to see why a task failed):
+```bash
+docker compose logs -f celery_worker
+```
+Locations support timezones: set **Timezone** when creating/editing a location. Use IANA names (e.g. `America/New_York`, `Asia/Karachi`). `GET /api/locations/timezones` returns options including USA and Pakistan.
 
 The Docker build includes the React admin (built in the image). For local development of the admin:
 

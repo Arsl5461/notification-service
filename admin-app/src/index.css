@@ -105,6 +105,11 @@ th {
   margin-top: 0.5rem;
 }
 
+.success-msg {
+  color: #059669;
+  margin-top: 0.5rem;
+}
+
 .actions {
   display: flex;
   gap: 0.5rem;

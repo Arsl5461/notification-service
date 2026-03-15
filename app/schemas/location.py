@@ -32,3 +32,14 @@ class LocationRead(BaseModel):
     is_active: bool
 
     model_config = {"from_attributes": True}
+
+
+class AssignWorkersRequest(BaseModel):
+    """Assign workers to a location (for testing / admin)."""
+    worker_ids: list[int]
+
+
+class SendTestRequest(BaseModel):
+    """Send a test notification to a location's FCM topic now."""
+    title: str = "Test notification"
+    body: str = "This is a test message from the admin."

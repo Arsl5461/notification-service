@@ -4,6 +4,7 @@ Celery Beat will trigger these; we use a periodic task that runs every minute an
 dispatches sends for any schedule whose send_time matches (in location timezone).
 """
 import logging
+import traceback
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -27,12 +28,13 @@ def get_sync_session() -> Session:
     return SessionLocal()
 
 
-@celery_app.task(name="app.tasks.scheduled_alerts.send_scheduled_alerts")
-def send_scheduled_alerts():
+@celery_app.task(name="app.tasks.scheduled_alerts.send_scheduled_alerts", bind=True)
+def send_scheduled_alerts(self):
     """
     Run every minute. For each active schedule, check if current time in location's
     timezone matches send_time; if so, send one FCM message to topic location-{id}.
     """
+    logger.info("send_scheduled_alerts: task started")
     session = get_sync_session()
     try:
         result = session.execute(
@@ -41,14 +43,39 @@ def send_scheduled_alerts():
                 Location.is_active == True,
             )
         )
-        for schedule, location in result.all():
+        rows = result.all()
+        logger.info("send_scheduled_alerts: found %d active schedule(s)", len(rows))
+        for schedule, location in rows:
             try:
-                tz = ZoneInfo(location.timezone) if location.timezone else ZoneInfo("UTC")
+                tz_name = location.timezone or "UTC"
+                try:
+                    tz = ZoneInfo(tz_name)
+                except Exception as tz_err:
+                    logger.error(
+                        "Invalid timezone %r for location id=%s: %s",
+                        tz_name,
+                        location.id,
+                        tz_err,
+                        exc_info=True,
+                    )
+                    session.rollback()
+                    continue
                 now = datetime.now(tz).time()
-                # Match if within same minute (cron runs every minute)
-                if (now.hour, now.minute) != (schedule.send_time.hour, schedule.send_time.minute):
+                schedule_minute = (schedule.send_time.hour, schedule.send_time.minute)
+                current_minute = (now.hour, now.minute)
+                logger.debug(
+                    "Schedule id=%s location=%s tz=%s now=%s send_time=%s match=%s",
+                    schedule.id,
+                    location.name,
+                    tz_name,
+                    now.isoformat(),
+                    schedule.send_time.isoformat(),
+                    schedule_minute == current_minute,
+                )
+                if schedule_minute != current_minute:
                     continue
                 topic = f"location-{schedule.location_id}"
+                logger.info("Sending alert to topic=%s title=%r", topic, schedule.message_title)
                 success, err = send_to_topic(
                     topic, schedule.message_title, schedule.message_body
                 )
@@ -62,14 +89,29 @@ def send_scheduled_alerts():
                     error_message=err,
                 )
                 session.add(log)
-                session.commit()
                 if success:
-                    logger.info("Sent alert to topic %s: %s", topic, schedule.message_title)
+                    schedule.is_active = False
+                    logger.info("Sent alert to topic %s: %s; schedule id=%s set inactive", topic, schedule.message_title, schedule.id)
                 else:
                     logger.warning("Failed to send to %s: %s", topic, err)
+                session.commit()
             except Exception as e:
-                logger.exception("Error processing schedule %s: %s", schedule.id, e)
+                logger.exception(
+                    "Error processing schedule id=%s (location_id=%s): %s\n%s",
+                    schedule.id,
+                    schedule.location_id,
+                    e,
+                    traceback.format_exc(),
+                )
                 session.rollback()
+        logger.info("send_scheduled_alerts: task finished")
+    except Exception as e:
+        logger.exception(
+            "send_scheduled_alerts failed: %s\n%s",
+            e,
+            traceback.format_exc(),
+        )
+        raise
     finally:
         session.close()
 

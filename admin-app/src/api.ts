@@ -152,3 +152,24 @@ export function updateSchedule(
 export function deleteSchedule(id: number) {
   return api<void>(`/schedules/${id}`, { method: 'DELETE' });
 }
+
+export function getLocationWorkers(locationId: number) {
+  return api<Worker[]>(`/locations/${locationId}/workers`);
+}
+
+export function assignWorkersToLocation(locationId: number, workerIds: number[]) {
+  return api<{ assigned: number; location_id: number }>(`/locations/${locationId}/assign-workers`, {
+    method: 'POST',
+    body: JSON.stringify({ worker_ids: workerIds }),
+  });
+}
+
+export function sendTestNotification(
+  locationId: number,
+  data: { title?: string; body?: string } = {}
+) {
+  return api<{ sent: boolean; topic: string; title: string; body: string }>(
+    `/locations/${locationId}/send-test`,
+    { method: 'POST', body: JSON.stringify({ title: data.title ?? 'Test notification', body: data.body ?? 'This is a test message from the admin.' }) }
+  );
+}

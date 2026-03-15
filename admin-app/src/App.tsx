@@ -6,6 +6,7 @@ import { Login } from './pages/Login';
 import { Locations } from './pages/Locations';
 import { Workers } from './pages/Workers';
 import { Schedules } from './pages/Schedules';
+import { Testing } from './pages/Testing';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -25,6 +26,7 @@ export default function App() {
     <Route path="locations" element={<Locations />} />
     <Route path="workers" element={<Workers />} />
     <Route path="schedules" element={<Schedules />} />
+    <Route path="testing" element={<Testing />} />
   </Route>
   <Route path="*" element={<Navigate to="/login" replace />} />
 </Routes>

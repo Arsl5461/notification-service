@@ -8,6 +8,7 @@ export function Layout() {
     { to: '/locations', label: 'Locations' },
     { to: '/workers', label: 'Workers' },
     { to: '/schedules', label: 'Schedules' },
+    { to: '/testing', label: 'Testing' },
   ];
 
   return (
